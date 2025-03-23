@@ -28,6 +28,8 @@ pub struct BrowserServiceResponse {
     pub error: Option<String>,
 }
 
+use crate::browser::script::ScriptManager;
+
 pub struct RemoteBrowserService {
     client: Client,
     base_url: String,
@@ -97,5 +99,28 @@ impl RemoteBrowserService {
         debug!("Successfully crawled URL: {}", url);
         
         Ok(response)
+    }
+    
+    pub async fn health_check(&self) -> Result<bool> {
+        let endpoint = format!("{}/health", self.base_url);
+        
+        match self.client.get(&endpoint).send().await {
+            Ok(response) => {
+                if response.status().is_success() {
+                    Ok(true)
+                } else {
+                    Ok(false)
+                }
+            },
+            Err(e) => {
+                error!("Health check failed: {}", e);
+                Ok(false)
+            }
+        }
+    }
+    
+    /// Get a script manager for this browser service
+    pub fn script_manager(&self) -> ScriptManager {
+        ScriptManager::new(&self.base_url)
     }
 }

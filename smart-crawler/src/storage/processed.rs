@@ -3,6 +3,7 @@ use async_trait::async_trait;
 use sqlx::{Pool, Postgres, postgres::PgPoolOptions};
 use sqlx::types::Json;
 use serde::{Serialize, Deserialize};
+use serde_json; // Add this import
 use std::path::Path;
 use std::sync::Arc;
 use std::fs;

@@ -6,7 +6,7 @@ use serde::{Serialize, Deserialize};
 
 use crate::cli::config::BrowserFingerprint;
 
-/// Browser fingerprint generator and manager
+/// Browser fingerprint generator
 pub struct FingerprintManager {
     /// Available fingerprints to use
     fingerprints: Vec<BrowserFingerprint>,
@@ -20,7 +20,7 @@ pub struct Viewport {
     pub device_scale_factor: f32,
 }
 
-/// Complete browser fingerprint
+/// Complete browser fingerprint for remote service
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CompleteFingerprint {
     pub name: String,
@@ -29,11 +29,9 @@ pub struct CompleteFingerprint {
     pub platform: String,
     pub viewport: Viewport,
     pub headers: HashMap<String, String>,
-    pub plugins: Vec<String>,
-    pub fonts: Vec<String>,
-    pub timezone: String,
-    pub webgl_vendor: String,
-    pub webgl_renderer: String,
+    pub time_zone: Option<String>,
+    pub webgl_vendor: Option<String>,
+    pub webgl_renderer: Option<String>,
     pub has_touch: bool,
     pub color_depth: u32,
     pub hardware_concurrency: u32,
@@ -105,46 +103,21 @@ impl FingerprintManager {
         headers.insert("Connection".to_string(), "keep-alive".to_string());
         headers.insert("Upgrade-Insecure-Requests".to_string(), "1".to_string());
         
-        // Generate common plugins for the browser type
-        let plugins = if fingerprint.user_agent.contains("Chrome") {
-            vec![
-                "Chrome PDF Plugin".to_string(),
-                "Chrome PDF Viewer".to_string(),
-                "Native Client".to_string(),
-            ]
-        } else if fingerprint.user_agent.contains("Firefox") {
-            vec![
-                "PDF Viewer".to_string(),
-                "Firefox Default Browser Helper".to_string(),
-            ]
-        } else {
-            Vec::new()
-        };
-        
-        // Generate common fonts
-        let fonts = vec![
-            "Arial".to_string(),
-            "Courier New".to_string(),
-            "Georgia".to_string(),
-            "Times New Roman".to_string(),
-            "Verdana".to_string(),
-        ];
-        
         // Generate WebGL info based on platform
         let (webgl_vendor, webgl_renderer) = if fingerprint.platform.contains("Win") {
             (
-                "Google Inc.".to_string(),
-                "ANGLE (Intel(R) HD Graphics Direct3D11 vs_5_0 ps_5_0)".to_string(),
+                Some("Google Inc.".to_string()),
+                Some("ANGLE (Intel(R) HD Graphics Direct3D11 vs_5_0 ps_5_0)".to_string()),
             )
         } else if fingerprint.platform.contains("Mac") {
             (
-                "Apple Inc.".to_string(),
-                "Apple GPU".to_string(),
+                Some("Apple Inc.".to_string()),
+                Some("Apple GPU".to_string()),
             )
         } else {
             (
-                "Mesa".to_string(),
-                "Mesa DRI Intel(R) HD Graphics 620 (Kaby Lake GT2)".to_string(),
+                Some("Mesa".to_string()),
+                Some("Mesa DRI Intel(R) HD Graphics 620 (Kaby Lake GT2)".to_string()),
             )
         };
         
@@ -156,9 +129,7 @@ impl FingerprintManager {
             platform: fingerprint.platform.clone(),
             viewport,
             headers,
-            plugins,
-            fonts,
-            timezone: "America/New_York".to_string(), // Could randomize this
+            time_zone: Some("America/New_York".to_string()), // Could randomize this
             webgl_vendor,
             webgl_renderer,
             has_touch: fingerprint.user_agent.contains("Mobile"),

@@ -12,15 +12,17 @@ FULL_IMAGE_NAME="${REGISTRY}${IMAGE_NAME}:${IMAGE_TAG}"
 echo "Building browser service image: ${FULL_IMAGE_NAME}"
 echo "========================================"
 
-# Navigate to project root
-cd "$(dirname "$0")/.."
+# Navigate to browser service directory
+cd "$(dirname "$0")/../browser-service"
 
-# Ensure drivers in browser-service/drivers are executable
-chmod +x browser-service/drivers/* 2>/dev/null || echo "No drivers found or already executable"
+# Ensure drivers are executable
+if [ -d "drivers" ]; then
+  chmod +x drivers/* 2>/dev/null || echo "No drivers found or already executable"
+fi
 
 # Build the Docker image
 echo "Building Docker image..."
-docker build -t "${FULL_IMAGE_NAME}" -f build/browser-service.Dockerfile ./browser-service
+docker build -t "${FULL_IMAGE_NAME}" -f Dockerfile .
 
 # Push the image if registry is provided
 if [ -n "$REGISTRY" ]; then

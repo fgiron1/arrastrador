@@ -17,7 +17,7 @@ cd "$(dirname "$0")/.."
 
 # Build the Docker image
 echo "Building Docker image..."
-docker build -t "${FULL_IMAGE_NAME}" -f build/crawler.Dockerfile .
+docker build -t "${FULL_IMAGE_NAME}" -f Dockerfile .
 
 # Push the image if registry is provided
 if [ -n "$REGISTRY" ]; then

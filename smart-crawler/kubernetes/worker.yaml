@@ -38,6 +38,8 @@ spec:
           value: "mongodb://mongodb-service:27017"
         - name: POSTGRES_URL
           value: "postgresql://postgres:postgres@postgres-service:5432/crawler"
+        - name: BROWSER_SERVICE_URL
+          value: "http://browser-service:5000" 
         volumeMounts:
         - name: config-volume
           mountPath: /etc/crawler/config

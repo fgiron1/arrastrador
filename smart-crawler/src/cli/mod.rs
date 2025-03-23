@@ -1,5 +1,5 @@
-mod commands;
-mod config;
+pub mod commands;
+pub mod config;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};

@@ -12,7 +12,15 @@ pub struct CrawlerConfig {
     pub browser: BrowserSettings,
     pub proxy: ProxySettings,
     pub storage: StorageSettings,
+    pub browser_service: BrowserServiceSettings,
 }
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct BrowserServiceSettings {
+    pub enabled: bool,
+    pub url: String,
+}
+
 
 /// Crawler-specific settings
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -189,6 +197,10 @@ impl Default for CrawlerConfig {
                     table_prefix: "crawled".to_string(),
                 },
             },
+            browser_service: BrowserServiceSettings {
+                 enabled: true,
+                 url: "http://localhost:5000".to_string(), 
+            }
         }
     }
 }

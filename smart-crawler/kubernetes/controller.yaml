@@ -78,6 +78,116 @@ spec:
     name: http
   type: ClusterIP
 ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: browser-service
+  labels:
+    app: crawler
+    component: browser-service
+spec:
+  replicas: 3  # Start with 3 replicas, adjust based on load
+  selector:
+    matchLabels:
+      app: crawler
+      component: browser-service
+  template:
+    metadata:
+      labels:
+        app: crawler
+        component: browser-service
+    spec:
+      containers:
+      - name: browser-service
+        image: crawler-browser-service:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 5000
+          name: http
+        resources:
+          limits:
+            cpu: "2"
+            memory: "2Gi"
+          requests:
+            cpu: "500m"
+            memory: "1Gi"
+        env:
+        - name: PYTHONUNBUFFERED
+          value: "1"
+        volumeMounts:
+        - name: shm-volume
+          mountPath: /dev/shm
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 10
+      volumes:
+      - name: shm-volume
+        emptyDir:
+          medium: Memory
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: browser-service
+  labels:
+    app: crawler
+    component: browser-service
+spec:
+  selector:
+    app: crawler
+    component: browser-service
+  ports:
+  - port: 5000
+    targetPort: 5000
+    name: http
+  type: ClusterIP
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: browser-service-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: browser-service
+  minReplicas: 3
+  maxReplicas: 20
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 70
+---
+# ConfigMap for browser service
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: browser-service-config
+  labels:
+    app: crawler
+    component: browser-service
+data:
+  PYTHONUNBUFFERED: "1"
+  HEADLESS: "true"
+---
 apiVersion: v1
 kind: ConfigMap
 metadata:

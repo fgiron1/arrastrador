@@ -3,7 +3,7 @@ use regex::Regex;
 use url::Url;
 use tracing::{debug, warn};
 
-use crate::cli::config::{CrawlerSettings, UrlPatterns};
+use crate::cli::config::CrawlerSettings;
 
 /// Scheduler for determining which URLs should be crawled
 pub struct Scheduler {

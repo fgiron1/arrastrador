@@ -1,7 +1,6 @@
 use anyhow::{Result, Context};
-use redis::{Client, Connection, AsyncConnection, aio::MultiplexedConnection};
+use redis::{Client, aio::MultiplexedConnection};
 use tracing::{debug, error};
-use serde_json;
 use tokio::sync::Mutex;
 use std::sync::Arc;
 
@@ -23,7 +22,7 @@ pub struct QueueManager {
 impl QueueManager {
     /// Create a new queue manager
     pub async fn new(config: &QueueSettings) -> Result<Self> {
-        let client = Client::open(&config.redis_url)
+        let client = Client::open(config.redis_url.clone())
             .context(format!("Failed to connect to Redis at {}", config.redis_url))?;
         
         let conn = client.get_multiplexed_async_connection().await

@@ -77,6 +77,11 @@ pub struct BrowserBehavior {
     pub typing_speed: (u64, u64), // Min and max milliseconds per character
     pub mouse_movement: bool,
     pub session_duration: (u64, u64), // Min and max session duration in seconds
+    pub page_load_wait: Option<(u64, u64)>, // Min and max page load wait time in milliseconds
+    pub random_pauses: Option<bool>, // Whether to include random pauses
+    pub follow_links_probability: Option<f64>, // Probability (0-1) of following a link
+    pub randomize_viewport: Option<bool>, // Whether to slightly randomize viewport during session
+    pub simulate_network_conditions: Option<String>, // "fast", "normal", "slow", null
 }
 
 /// Proxy settings
@@ -171,6 +176,11 @@ impl Default for CrawlerConfig {
                     typing_speed: (50, 150),
                     mouse_movement: true,
                     session_duration: (300, 1800),
+                    page_load_wait: Some((1000, 3000)),
+                    random_pauses: Some(true),
+                    follow_links_probability: Some(0.0), // Default to not following links
+                    randomize_viewport: Some(false),
+                    simulate_network_conditions: None,
                 },
             },
             proxy: ProxySettings {
@@ -208,23 +218,17 @@ impl Default for CrawlerConfig {
 impl CrawlerConfig {
     /// Get the path to the config directory
     fn config_dir() -> PathBuf {
-        let mut path = if let Some(proj_dirs) = directories::ProjectDirs::from("com", "smart-crawler", "smart-crawler") {
+        // If the directories crate is not available, just use a local path
+        PathBuf::from("./config")
+        
+        // Uncomment this and add the directories crate to Cargo.toml if needed
+        /*
+        if let Some(proj_dirs) = directories::ProjectDirs::from("com", "smart-crawler", "smart-crawler") {
             proj_dirs.config_dir().to_path_buf()
         } else {
             PathBuf::from("./config")
-        };
-        
-        // Create the sites directory if it doesn't exist
-        path.push("sites");
-        if !path.exists() {
-            if let Err(e) = fs::create_dir_all(&path) {
-                error!("Failed to create config directory: {}", e);
-            }
         }
-        
-        // Move back up to the config directory
-        path.pop();
-        path
+        */
     }
     
     /// Load the default configuration

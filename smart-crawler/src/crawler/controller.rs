@@ -13,14 +13,14 @@ use crate::crawler::scheduler::Scheduler;
 use crate::crawler::task::{CrawlTask, TaskResult};
 use crate::storage::queue::QueueManager;
 use crate::storage::raw::{RawStorage, RawStorageBackend, JobStatus};
-use crate::storage::processed::{ProcessedStorage};
+use crate::storage::processed::{ProcessedStorage, ProcessedStorageFactory};
 
 pub struct CrawlerController {
     config: CrawlerConfig,
     queue: Arc<QueueManager>,
     scheduler: Arc<Mutex<Scheduler>>,
     raw_storage: Arc<dyn RawStorageBackend>,
-    processed_storage: Arc<dyn ProcessedStorageBackend>,
+    processed_storage: Arc<dyn ProcessedStorage>,
     browser_service: Arc<RemoteBrowserService>,
 }
 
@@ -35,8 +35,7 @@ impl CrawlerController {
         
         // Initialize storage
         let raw_storage = RawStorage::create(&config.storage.raw_data).await?;
-        let processed_storage = ProcessedStorage::create(&config.storage.processed_data).await?;
-        
+        let processed_storage = ProcessedStorageFactory::create(&config.storage.processed_data).await?;        
         // Initialize browser service
         let browser_service = Arc::new(RemoteBrowserService::new());
         
@@ -58,7 +57,7 @@ impl CrawlerController {
         // Connect to existing components rather than creating new ones
         let queue = Arc::new(QueueManager::connect(&config.storage.queue).await?);
         let raw_storage = RawStorage::connect(&config.storage.raw_data).await?;
-        let processed_storage = ProcessedStorage::connect(&config.storage.processed_data).await?;
+        let processed_storage = ProcessedStorageFactory::connect(&config.storage.processed_data).await?;
         
         // Create a new scheduler (stateless component)
         let scheduler = Arc::new(Mutex::new(Scheduler::new(config.crawler.clone())));

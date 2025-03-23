@@ -81,7 +81,9 @@ impl ProxyManager {
             // If no working proxies, reset and try again
             debug!("No working proxies found, resetting status");
             self.proxy_status.clear();
-            return self.rotate_proxy().await;
+            
+            // Use Box::pin to handle recursion in async fn
+            return Box::pin(self.rotate_proxy()).await;
         }
         
         // Select a random proxy
@@ -94,8 +96,7 @@ impl ProxyManager {
         self.last_rotation = Instant::now();
         
         Ok(())
-    }
-    
+    }  
     /// Mark the current proxy as failed
     pub async fn mark_current_failed(&mut self) -> Result<()> {
         if let Some(proxy) = &self.current_proxy {
@@ -155,7 +156,10 @@ impl ProxyManager {
         // Create a proxy-specific client
         let proxy_client = match reqwest::Proxy::all(&proxy_url) {
             Ok(proxy) => {
-                match client.clone().proxy(proxy).build() {
+                match Client::builder()
+                    .timeout(Duration::from_secs(10))
+                    .proxy(proxy)  // Now this should work with the "socks" feature
+                    .build() {
                     Ok(client) => client,
                     Err(e) => {
                         error!("Failed to create proxy client: {}", e);

@@ -1,18 +1,32 @@
 use anyhow::{Result, Context};
+use futures::StreamExt;
 use async_trait::async_trait;
 use mongodb::{Client, Database, Collection, options::ClientOptions};
 use mongodb::bson::{doc, Document};
 use serde::{Serialize, Deserialize};
 use std::sync::Arc;
-use tracing::{debug, error};
+use tracing::debug;
+use chrono::{DateTime, Utc}; // Make sure to add this
 
 use crate::cli::config::RawDataSettings;
 use crate::crawler::task::TaskResult;
-use crate::crawler::controller::JobStatus;
+
+// Define the JobStatus struct here to avoid circular dependencies
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct JobStatus {
+    pub job_id: String,
+    pub seed_url: String,
+    pub state: String,  // "pending", "running", "completed", "failed"
+    pub pages_crawled: usize,
+    pub pages_total: usize,
+    pub started_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    pub errors: Vec<String>,
+}
 
 /// Trait for raw data storage
 #[async_trait]
-pub trait RawStorage: Send + Sync {
+pub trait RawStorageBackend: Send + Sync {
     /// Store a page result
     async fn store_page_result(&self, result: &TaskResult) -> Result<()>;
     
@@ -37,7 +51,7 @@ pub struct RawStorage;
 
 impl RawStorage {
     /// Create a new RawStorage instance based on the settings
-    pub async fn create(settings: &RawDataSettings) -> Result<Arc<dyn RawStorage>> {
+    pub async fn create(settings: &RawDataSettings) -> Result<Arc<dyn RawStorageBackend>> {
         match settings.storage_type.as_str() {
             "mongodb" => {
                 let storage = MongoDBStorage::new(settings).await?;
@@ -54,7 +68,7 @@ impl RawStorage {
     }
     
     /// Connect to an existing RawStorage instance
-    pub async fn connect(settings: &RawDataSettings) -> Result<Arc<dyn RawStorage>> {
+    pub async fn connect(settings: &RawDataSettings) -> Result<Arc<dyn RawStorageBackend>> {
         Self::create(settings).await
     }
 }
@@ -112,7 +126,7 @@ impl MongoDBStorage {
 }
 
 #[async_trait]
-impl RawStorage for MongoDBStorage {
+impl RawStorageBackend for MongoDBStorage {
     async fn store_page_result(&self, result: &TaskResult) -> Result<()> {
         let collection = self.pages_collection(&result.job_id);
         
@@ -209,14 +223,15 @@ impl RawStorage for MongoDBStorage {
         let collection = self.jobs_collection();
         
         // Find all job documents
-        let cursor = collection.find(None, None).await
+        let mut cursor = collection.find(None, None).await
             .context("Failed to query MongoDB for jobs")?;
         
         // Convert to JobStatus objects
-        let results = mongodb::Cursor::collect::<Result<Vec<Document>, mongodb::error::Error>>(cursor)
-            .await
-            .context("Failed to collect MongoDB cursor results")?;
-        
+        let mut results = Vec::new();
+        while let Some(doc) = cursor.next().await {
+            let doc = doc.context("Failed to get document from cursor")?;
+            results.push(doc);
+        }
         let mut jobs = Vec::new();
         for doc in results {
             let job_status: JobStatus = mongodb::bson::from_document(doc)

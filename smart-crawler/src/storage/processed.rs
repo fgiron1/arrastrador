@@ -40,9 +40,9 @@ pub trait ProcessedStorage: Send + Sync {
 }
 
 /// Factory for creating a ProcessedStorage implementation
-pub struct ProcessedStorage;
+pub struct ProcessedStorageFactory;
 
-impl ProcessedStorage {
+impl ProcessedStorageFactory {
     /// Create a new ProcessedStorage instance based on the settings
     pub async fn create(settings: &ProcessedDataSettings) -> Result<Arc<dyn ProcessedStorage>> {
         match settings.storage_type.as_str() {
@@ -91,6 +91,9 @@ struct PageData {
     created_at: DateTime<Utc>,
     updated_at: DateTime<Utc>,
 }
+
+
+
 
 impl PostgresStorage {
     /// Create a new PostgreSQL storage instance
@@ -369,6 +372,7 @@ impl ProcessedStorage for PostgresStorage {
             self.schema, table_name
         );
         
+        #[derive(sqlx::FromRow)]
         struct CsvRow {
             job_id: String,
             url: String,
@@ -376,14 +380,11 @@ impl ProcessedStorage for PostgresStorage {
             updated_at: DateTime<Utc>,
         }
         
-        let results = sqlx::query_as!(
-            CsvRow,
-            &query,
-            job_id
-        )
-        .fetch_all(&self.pool)
-        .await
-        .context("Failed to query page data from PostgreSQL")?;
+        let results = sqlx::query_as::<_, CsvRow>(&query)
+            .bind(job_id)
+            .fetch_all(&self.pool)
+            .await
+            .context("Failed to query page data from PostgreSQL")?;
         
         // Write to CSV file
         let mut file = fs::File::create(output_path)
@@ -392,7 +393,7 @@ impl ProcessedStorage for PostgresStorage {
         // Write header row
         writeln!(file, "job_id,url,created_at,updated_at")
             .context("Failed to write CSV header to file")?;
-        
+        let results_length = results.len(); 
         // Write data rows
         for row in results {
             writeln!(
@@ -406,7 +407,7 @@ impl ProcessedStorage for PostgresStorage {
             .context("Failed to write CSV row to file")?;
         }
         
-        debug!("Exported {} records to CSV file: {}", results.len(), output_path.display());
+        debug!("Exported {} records to CSV file: {}", results_length, output_path.display());
         
         Ok(())
     }
@@ -460,6 +461,7 @@ impl ProcessedStorage for PostgresStorage {
             self.schema, table_name
         );
         
+        #[derive(sqlx::FromRow)]
         struct SqlRow {
             job_id: String,
             url: String,
@@ -467,15 +469,12 @@ impl ProcessedStorage for PostgresStorage {
             created_at: DateTime<Utc>,
             updated_at: DateTime<Utc>,
         }
-        
-        let results = sqlx::query_as!(
-            SqlRow,
-            &query,
-            job_id
-        )
-        .fetch_all(&self.pool)
-        .await
-        .context("Failed to query page data from PostgreSQL")?;
+
+        let results = sqlx::query_as::<_, SqlRow>(&query)
+            .bind(job_id)
+            .fetch_all(&self.pool)
+            .await
+            .context("Failed to query page data from PostgreSQL")?;
         
         // Write to SQL file
         let mut file = fs::File::create(output_path)
@@ -494,7 +493,7 @@ impl ProcessedStorage for PostgresStorage {
             );\n\n"
         )
         .context("Failed to write SQL create table statement to file")?;
-        
+        let result_count = results.len();
         // Write data insert statements
         for row in results {
             let data_json = serde_json::to_string(&row.data.0)
@@ -512,7 +511,7 @@ impl ProcessedStorage for PostgresStorage {
             .context("Failed to write SQL insert statement to file")?;
         }
         
-        debug!("Exported {} records to SQL file: {}", results.len(), output_path.display());
+        debug!("Exported {} records to SQL file: {}", result_count, output_path.display());
         
         Ok(())
     }

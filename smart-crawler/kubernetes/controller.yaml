@@ -1,0 +1,148 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: crawler-controller
+  labels:
+    app: crawler
+    component: controller
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: crawler
+      component: controller
+  template:
+    metadata:
+      labels:
+        app: crawler
+        component: controller
+    spec:
+      containers:
+      - name: controller
+        image: crawler:latest
+        imagePullPolicy: IfNotPresent
+        command: ["crawler", "serve", "--host", "0.0.0.0", "--port", "8080"]
+        ports:
+        - containerPort: 8080
+          name: http
+        resources:
+          limits:
+            cpu: "1"
+            memory: "1Gi"
+          requests:
+            cpu: "500m"
+            memory: "512Mi"
+        env:
+        - name: RUST_LOG
+          value: "info,crawler=debug"
+        - name: REDIS_URL
+          value: "redis://redis-service:6379"
+        - name: MONGODB_URL
+          value: "mongodb://mongodb-service:27017"
+        - name: POSTGRES_URL
+          value: "postgresql://postgres:postgres@postgres-service:5432/crawler"
+        volumeMounts:
+        - name: config-volume
+          mountPath: /etc/crawler/config
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 10
+      volumes:
+      - name: config-volume
+        configMap:
+          name: crawler-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: crawler-controller-service
+  labels:
+    app: crawler
+    component: controller
+spec:
+  selector:
+    app: crawler
+    component: controller
+  ports:
+  - port: 8080
+    targetPort: 8080
+    name: http
+  type: ClusterIP
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: crawler-config
+data:
+  default.yaml: |
+    crawler:
+      max_depth: 3
+      max_pages: 1000
+      politeness_delay: 2000
+      respect_robots_txt: true
+      allowed_domains: []
+      url_patterns:
+        include: []
+        exclude:
+          - "^.*\\.(jpg|jpeg|png|gif|css|js)$"
+      user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+    
+    browser:
+      browser_type: "chrome"
+      headless: true
+      viewport:
+        width: 1920
+        height: 1080
+        device_scale_factor: 1.0
+      fingerprints:
+        - name: "windows_chrome"
+          user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+          accept_language: "en-US,en;q=0.9"
+          platform: "Win32"
+          extra_headers: {}
+        - name: "mac_safari"
+          user_agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0 Safari/605.1.15"
+          accept_language: "en-US,en;q=0.9"
+          platform: "MacIntel"
+          extra_headers: {}
+        - name: "android_chrome"
+          user_agent: "Mozilla/5.0 (Linux; Android 11; SM-G991B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.120 Mobile Safari/537.36"
+          accept_language: "en-US,en;q=0.9"
+          platform: "Linux"
+          extra_headers: {}
+      behavior:
+        scroll_behavior: "random"
+        click_delay: [100, 300]
+        typing_speed: [50, 150]
+        mouse_movement: true
+        session_duration: [300, 1800]
+    
+    proxy:
+      enabled: false
+      rotation_strategy: "session"
+      rotation_interval: 600
+      proxy_list: []
+    
+    storage:
+      queue:
+        redis_url: "redis://redis-service:6379"
+        task_ttl: 86400
+      raw_data:
+        storage_type: "mongodb"
+        connection_string: "mongodb://mongodb-service:27017"
+        database_name: "crawler"
+        collection_prefix: "raw"
+      processed_data:
+        storage_type: "postgresql"
+        connection_string: "postgresql://postgres:postgres@postgres-service:5432/crawler"
+        schema_name: "public"
+        table_prefix: "crawled"

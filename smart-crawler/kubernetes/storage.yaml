@@ -1,0 +1,245 @@
+---
+# Redis Deployment and Service
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  labels:
+    app: crawler
+    component: redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: crawler
+      component: redis
+  template:
+    metadata:
+      labels:
+        app: crawler
+        component: redis
+    spec:
+      containers:
+      - name: redis
+        image: redis:6.2-alpine
+        ports:
+        - containerPort: 6379
+        resources:
+          limits:
+            cpu: "1"
+            memory: "1Gi"
+          requests:
+            cpu: "200m"
+            memory: "512Mi"
+        volumeMounts:
+        - name: redis-data
+          mountPath: /data
+        livenessProbe:
+          exec:
+            command:
+            - redis-cli
+            - ping
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - redis-cli
+            - ping
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: redis-data
+        persistentVolumeClaim:
+          claimName: redis-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-service
+  labels:
+    app: crawler
+    component: redis
+spec:
+  selector:
+    app: crawler
+    component: redis
+  ports:
+  - port: 6379
+    targetPort: 6379
+  type: ClusterIP
+---
+# MongoDB Deployment and Service
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mongodb
+  labels:
+    app: crawler
+    component: mongodb
+spec:
+  serviceName: mongodb-service
+  replicas: 1
+  selector:
+    matchLabels:
+      app: crawler
+      component: mongodb
+  template:
+    metadata:
+      labels:
+        app: crawler
+        component: mongodb
+    spec:
+      containers:
+      - name: mongodb
+        image: mongo:5.0
+        ports:
+        - containerPort: 27017
+        resources:
+          limits:
+            cpu: "2"
+            memory: "4Gi"
+          requests:
+            cpu: "500m"
+            memory: "1Gi"
+        volumeMounts:
+        - name: mongodb-data
+          mountPath: /data/db
+        livenessProbe:
+          exec:
+            command:
+            - mongo
+            - --eval
+            - "db.adminCommand('ping')"
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - mongo
+            - --eval
+            - "db.adminCommand('ping')"
+          initialDelaySeconds: 5
+          periodSeconds: 5
+  volumeClaimTemplates:
+  - metadata:
+      name: mongodb-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 10Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongodb-service
+  labels:
+    app: crawler
+    component: mongodb
+spec:
+  selector:
+    app: crawler
+    component: mongodb
+  ports:
+  - port: 27017
+    targetPort: 27017
+  type: ClusterIP
+---
+# PostgreSQL Deployment and Service
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  labels:
+    app: crawler
+    component: postgres
+spec:
+  serviceName: postgres-service
+  replicas: 1
+  selector:
+    matchLabels:
+      app: crawler
+      component: postgres
+  template:
+    metadata:
+      labels:
+        app: crawler
+        component: postgres
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:14-alpine
+        ports:
+        - containerPort: 5432
+        env:
+        - name: POSTGRES_USER
+          value: "postgres"
+        - name: POSTGRES_PASSWORD
+          value: "postgres"
+        - name: POSTGRES_DB
+          value: "crawler"
+        - name: PGDATA
+          value: "/var/lib/postgresql/data/pgdata"
+        resources:
+          limits:
+            cpu: "2"
+            memory: "4Gi"
+          requests:
+            cpu: "500m"
+            memory: "1Gi"
+        volumeMounts:
+        - name: postgres-data
+          mountPath: /var/lib/postgresql/data
+        livenessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -U
+            - postgres
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -U
+            - postgres
+          initialDelaySeconds: 5
+          periodSeconds: 5
+  volumeClaimTemplates:
+  - metadata:
+      name: postgres-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 10Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-service
+  labels:
+    app: crawler
+    component: postgres
+spec:
+  selector:
+    app: crawler
+    component: postgres
+  ports:
+  - port: 5432
+    targetPort: 5432
+  type: ClusterIP
+---
+# Persistent Volume Claims
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: redis-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi

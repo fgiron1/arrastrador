@@ -1,0 +1,65 @@
+```mermaid
+    flowchart TD
+        subgraph "Command & Control"
+            CLI[Command Line Interface]
+            ConfigFiles[YAML Configuration Files]
+            LogConsole[Log Console Output]
+        end
+
+        subgraph "Orchestration Layer"
+            Scheduler[Task Scheduler - Rust]
+            KubeAPI[Kubernetes API]
+            MetricsCollector[Metrics Collector]
+        end
+
+        subgraph "Core Crawler Engine"
+            Controller[Crawler Controller - Rust]
+            TaskQueue[Task Queue - Redis]
+            ResultProcessor[Result Processor - Python]
+        end
+
+        subgraph "Worker Nodes"
+            Crawler1[Crawler Worker 1]
+            Crawler2[Crawler Worker 2]
+            CrawlerN[Crawler Worker N]
+        end
+
+        subgraph "Browser Farm"
+            Browser1[Browser Instance 1]
+            Browser2[Browser Instance 2]
+            BrowserN[Browser Instance N]
+        end
+
+        subgraph "Data Storage"
+            RawData[Raw Data - MongoDB]
+            ProcessedData[Processed Data - PostgreSQL]
+        end
+
+        subgraph "Security & Rotation"
+            ProxyManager[Proxy/VPN Manager]
+            FingerprintRotator[Browser Fingerprint Rotator]
+            BehaviorSimulator[Human Behavior Simulator]
+        end
+
+        CLI --> ConfigFiles
+        CLI --> Scheduler
+        LogConsole --> CLI
+        
+        Scheduler --> KubeAPI
+        KubeAPI --> Crawler1 & Crawler2 & CrawlerN
+        
+        Controller --> TaskQueue
+        TaskQueue --> Crawler1 & Crawler2 & CrawlerN
+        
+        Crawler1 & Crawler2 & CrawlerN --> Browser1 & Browser2 & BrowserN
+        Browser1 & Browser2 & BrowserN --> ProxyManager
+        
+        Crawler1 & Crawler2 & CrawlerN --> ResultProcessor
+        ResultProcessor --> RawData
+        ResultProcessor --> ProcessedData
+        
+        Browser1 & Browser2 & BrowserN --> FingerprintRotator
+        Browser1 & Browser2 & BrowserN --> BehaviorSimulator
+        
+        Crawler1 & Crawler2 & CrawlerN --> MetricsCollector
+```
